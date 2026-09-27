@@ -14,10 +14,23 @@ TIMEOUT_SECONDS = 15
 
 class LLMService:
     def __init__(self):
-        self.provider = os.getenv("LLM_PROVIDER", "").lower()
-        self.api_key = os.getenv("LLM_API_KEY", "")
-        self.model = os.getenv("LLM_MODEL", "")
-        self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        pass
+
+    @property
+    def ollama_url(self) -> str:
+        return os.getenv("OLLAMA_URL", "http://localhost:11434")
+
+    @property
+    def provider(self) -> str:
+        return os.getenv("LLM_PROVIDER", "").lower()
+
+    @property
+    def api_key(self) -> str:
+        return os.getenv("LLM_API_KEY", "")
+
+    @property
+    def model(self) -> str:
+        return os.getenv("LLM_MODEL", "")
 
     @property
     def is_configured(self) -> bool:
@@ -39,8 +52,7 @@ class LLMService:
                 return self._call_anthropic(system_prompt, user_prompt, temperature)
             elif self.provider == "ollama":
                 return self._call_ollama(system_prompt, user_prompt, temperature)
-        except Exception as e:
-            # Silently catch so fallback handles the request
+        except Exception:
             return None
         return None
 
@@ -77,19 +89,29 @@ class LLMService:
             return data["choices"][0]["message"]["content"].strip()
 
     def _call_gemini(self, system: str, user: str, temp: float) -> str:
-        model_name = self.model or "gemini-1.5-flash"
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
         full_prompt = f"{system}\n\nUser Question:\n{user}"
-
         body = json.dumps({
             "contents": [{"parts": [{"text": full_prompt}]}],
             "generationConfig": {"temperature": temp, "maxOutputTokens": 300}
         }).encode("utf-8")
 
-        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        models_to_try = [self.model or "gemini-flash-latest", "gemini-2.5-flash", "gemini-pro-latest", "gemini-flash-lite-latest"]
+        for m in models_to_try:
+            if m.startswith("models/"):
+                m = m[len("models/"):]
+            for _ in range(2):
+                try:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={self.api_key}"
+                    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+                    with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                        if text:
+                            return text
+                except Exception:
+                    pass
+
+        return ""
 
     def _call_anthropic(self, system: str, user: str, temp: float) -> str:
         model_name = self.model or "claude-3-5-sonnet-20241022"

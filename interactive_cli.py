@@ -8,6 +8,12 @@ import json
 import urllib.request
 import urllib.error
 
+# Configure UTF-8 encoding for Windows terminals
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Default to your live Render bot or local server
 DEFAULT_URL = "https://magicpin-vera-bot-jske.onrender.com"
 
