@@ -93,10 +93,42 @@ def compose_message(
             trial_n = digest_item.get("trial_n")
             trial_text = f" (trial of {trial_n:,} patients)" if trial_n else ""
             summary = digest_item.get("summary", "")
-            body = (
-                f"{greeting}, {source}{trial_text}: '{title}'. "
-                f"{summary} Want me to set up a recall campaign with your {price_str}{offer_title} for affected {audience}?"
-            )
+            if cat_slug == "dentists":
+                body = (
+                    f"{greeting}, {source}{trial_text}: '{title}'. "
+                    f"{summary} Recovering overdue preventative visits captures unbooked chairside appointments in {locality}. "
+                    f"Want me to launch a recall invite with your {price_str}{offer_title} for eligible {audience}?"
+                )
+            elif cat_slug == "gyms":
+                body = (
+                    f"{greeting}, {source}{trial_text}: '{title}'. "
+                    f"{summary} Re-engaging at-risk {audience} prevents member drop-off and fills underutilized slots in {locality}. "
+                    f"Want me to send your {price_str}{offer_title} offer to active searchers?"
+                )
+            elif cat_slug == "salons":
+                body = (
+                    f"{greeting}, {source}{trial_text}: '{title}'. "
+                    f"{summary} Filling weekday gaps captures high-margin chair appointments across {locality}. "
+                    f"Shall I send your {price_str}{offer_title} offer to nearby {audience}?"
+                )
+            elif cat_slug == "restaurants":
+                body = (
+                    f"{greeting}, {source}{trial_text}: '{title}'. "
+                    f"{summary} Driving off-peak table bookings maximizes cover revenue in {locality}. "
+                    f"Want me to spotlight your {price_str}{offer_title} offer to nearby {audience}?"
+                )
+            elif cat_slug == "pharmacies":
+                body = (
+                    f"{greeting}, {source}{trial_text}: '{title}'. "
+                    f"{summary} Improving refill adherence ensures recurring monthly prescription volume in {locality}. "
+                    f"Shall I dispatch a 1-tap reorder reminder for your {price_str}{offer_title}?"
+                )
+            else:
+                body = (
+                    f"{greeting}, {source}{trial_text}: '{title}'. "
+                    f"{summary} Recover missed revenue by reaching active {audience} in {locality}. "
+                    f"Want me to set up a campaign with your {price_str}{offer_title}?"
+                )
             rationale = f"Cited published research from {source} regarding '{title}'."
         else:
             topic = payload.get("topic", "clinical research")
