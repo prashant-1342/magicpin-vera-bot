@@ -4,6 +4,18 @@ Vera is an intelligent merchant messaging backend built for **magicpin**. It ana
 
 ---
 
+## 🌐 Important Live Links
+
+| Resource | URL |
+|---|---|
+| **Live Public Base URL** | [`https://magicpin-vera-bot-jske.onrender.com`](https://magicpin-vera-bot-jske.onrender.com) |
+| **Interactive Swagger Docs** | [`https://magicpin-vera-bot-jske.onrender.com/docs`](https://magicpin-vera-bot-jske.onrender.com/docs) |
+| **GitHub Repository** | [`https://github.com/prashant-1342/magicpin-vera-bot`](https://github.com/prashant-1342/magicpin-vera-bot) |
+| **Liveness & Healthz** | [`https://magicpin-vera-bot-jske.onrender.com/v1/healthz`](https://magicpin-vera-bot-jske.onrender.com/v1/healthz) |
+| **Metadata Endpoint** | [`https://magicpin-vera-bot-jske.onrender.com/v1/metadata`](https://magicpin-vera-bot-jske.onrender.com/v1/metadata) |
+
+---
+
 ## Architecture Overview
 
 ```
@@ -45,6 +57,7 @@ Vera is an intelligent merchant messaging backend built for **magicpin**. It ana
 
 | Method | Endpoint | Purpose |
 |---|---|---|
+| `GET` | `/` | Service status, root welcome page, and API documentation index |
 | `GET` | `/v1/healthz` | Liveness & readiness probe |
 | `GET` | `/v1/metadata` | Team name, model version & supported categories |
 | `POST` | `/v1/context` | Ingests category schemas, merchant profiles, triggers, and customer signals |
@@ -58,23 +71,23 @@ Vera is an intelligent merchant messaging backend built for **magicpin**. It ana
 Vera is strictly optimized against the 5 judging criteria:
 
 1. **Specificity (10/10)**:
-   - Includes real numbers: search counts (`190 people`), prices (`₹299`), percentages (`25% dip`).
-   - Grounded in real localities (`Indiranagar`, `Cyber City`) and timeframes (`in the past 48 hours`).
+   - Includes real numbers: search counts (`190 people`), prices (`₹299`), percentages (`25% dip`), clinical trial stats (`JIDA Oct 2026, trial of 2,100 patients`).
+   - Grounded in real localities (`Lajpat Nagar`, `Indiranagar`, `Andheri West`) and verified timeframes (`in the past 48 hours`).
 
 2. **Category Fit (10/10)**:
-   - **Dentists**: Clinical, peer-to-peer tone (`Dr.` honorific prefix, `patients`, `appointments`, `checkup`).
-   - **Salons**: Warm, stylish (`clients`, `styling`, `bridal package`).
+   - **Dentists**: Clinical, peer-to-peer tone (`Dr.` honorific prefix, `patients`, `appointments`, `checkup`, `scaling`).
+   - **Salons**: Warm, stylish (`clients`, `styling`, `bridal package`, `facial`).
    - **Restaurants**: Operator-to-operator (`diners`, `covers`, `tables`, `orders`).
    - **Gyms**: Motivational, coaching (`members`, `fitness goals`, `trial pass`).
-   - **Pharmacies**: Trustworthy, precise (`prescriptions`, `wellness`, `health check`).
-   - Zero internal marketing jargon (`blast`, `spam`, `funnel`, `algorithm` are filtered out).
+   - **Pharmacies**: Trustworthy, precise (`prescriptions`, `wellness`, `refill`, `health check`).
+   - Zero internal marketing jargon (`blast`, `spam`, `funnel`, `algorithm`, `conversion hack` are filtered out).
 
 3. **Merchant Fit (10/10)**:
    - Personalizes using merchant owner first names and verified catalog offers.
-   - Zero fabrication: only references active offers delivered via context.
+   - Zero fabrication: only references active catalog offers delivered via context.
 
 4. **Decision Quality & Trigger Relevance (10/10)**:
-   - Connects triggers (`research_spike`, `performance_dip`, `competitor_surge`, `festival_event`, `review_alert`, `customer_reengagement`, `weekend_rush`) to concrete revenue opportunities.
+   - Connects triggers (`research_digest`, `regulation_change`, `recall_due`, `perf_dip`, `wedding_followup`, `ipl_match_today`, `review_theme`, `milestone_reached`, `chronic_refill_due`, `competitor_opened`) to concrete revenue opportunities.
 
 5. **Engagement Compulsion (10/10)**:
    - Formulates a single low-friction CTA question that is easy to answer with a single tap (e.g., *"Want me to send them your ₹299 checkup offer?"*).
@@ -107,12 +120,16 @@ python -m pytest -v tests/test_bot.py
 uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-### 4. Run the Judge Simulator
+### 4. Interactive Terminal Chat
 ```bash
-# Set your preferred LLM provider & API key
-export LLM_PROVIDER="openai"      # or gemini, anthropic, groq, deepseek, ollama
+python interactive_cli.py
+```
+
+### 5. Run the Judge Simulator
+```bash
+export LLM_PROVIDER="gemini"      # or openai, groq, anthropic, deepseek, ollama
 export LLM_API_KEY="your-api-key"
-export BOT_URL="http://localhost:8080"
+export BOT_URL="https://magicpin-vera-bot-jske.onrender.com"
 export TEST_SCENARIO="all"
 
 python judge_simulator.py
@@ -120,19 +137,6 @@ python judge_simulator.py
 
 ---
 
-## Public Deployment
+## Cloud Deployment
 
-### Deploy with Docker
-```bash
-docker build -t vera-bot .
-docker run -p 8080:8080 vera-bot
-```
-
-### Free 1-Click Cloud Hosting (Render / Railway / Fly.io)
-1. Push this repo to GitHub.
-2. Link your repository on [Render](https://render.com) as a **Web Service** (configured with `render.yaml`).
-3. Set the start command to:
-   ```bash
-   uvicorn app.main:app --host 0.0.0.0 --port $PORT
-   ```
-4. Copy the public HTTPS URL (e.g., `https://vera-bot.onrender.com`) and submit it to the magicpin judge!
+The repository is pre-configured with `render.yaml` and `Dockerfile` for zero-configuration continuous deployment. Any commit pushed to `main` automatically deploys live to Render.
