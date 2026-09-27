@@ -93,17 +93,16 @@ def compose_message(
             trial_n = digest_item.get("trial_n")
             trial_text = f" (trial of {trial_n:,} patients)" if trial_n else ""
             summary = digest_item.get("summary", "")
-            actionable = digest_item.get("actionable", "Review protocols")
             body = (
-                f"{source}{trial_text}: '{title}'. "
-                f"Summary: {summary} Want me to draft an update for your {audience} records?"
+                f"{greeting}, {source}{trial_text}: '{title}'. "
+                f"{summary} Want me to set up a recall campaign with your {price_str}{offer_title} for affected {audience}?"
             )
             rationale = f"Cited published research from {source} regarding '{title}'."
         else:
             topic = payload.get("topic", "clinical research")
             body = (
-                f"New research update for {cat_slug} in {locality}: '{topic}'. "
-                f"Should I share the actionable summary for your practice?"
+                f"{greeting}, new research update for {cat_slug} in {locality}: '{topic}'. "
+                f"Want me to set up a recall campaign with your {price_str}{offer_title} for affected {audience}?"
             )
             rationale = f"Research digest update on {topic}."
         cta = "review_research_summary"
