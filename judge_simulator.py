@@ -18,18 +18,30 @@ Author: magicpin AI Challenge Team
 # ██████  CONFIGURATION - EDIT THIS SECTION ██████
 # =============================================================================
 
+import os
+import sys
+
+# Auto-load .env if present
+env_file = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(env_file):
+    with open(env_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
+
 # Your bot's URL (where your bot is running)
-BOT_URL = "http://localhost:8080"
+BOT_URL = os.getenv("BOT_URL", "https://magicpin-vera-bot-jske.onrender.com")
 
 # Choose your LLM provider: "openai", "anthropic", "gemini", "deepseek", "groq", "ollama", "openrouter"
-LLM_PROVIDER = "openai"
+LLM_PROVIDER = "gemini"
 
 # Your API key (paste your key here or set via environment variable)
-import os
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 
-# Model to use (leave empty for default, or specify like "gpt-4o-mini", etc.)
-LLM_MODEL = os.getenv("LLM_MODEL", "")
+# Model to use (leave empty for default, or specify like "gemini-flash-latest", etc.)
+LLM_MODEL = os.getenv("LLM_MODEL", "gemini-flash-latest")
 
 # For Ollama only: local server URL
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
@@ -42,6 +54,12 @@ TEST_SCENARIO = os.getenv("TEST_SCENARIO", "all")
 # =============================================================================
 
 import sys
+
+# Configure UTF-8 encoding for Windows terminals
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 import json
 import time
 import re
@@ -206,7 +224,10 @@ class AnthropicProvider(LLMProvider):
 class GeminiProvider(LLMProvider):
     def __init__(self, api_key: str, model: str = ""):
         self.api_key = api_key
-        self.model = model or "gemini-1.5-flash"
+        model_clean = model or "gemini-flash-latest"
+        if model_clean.startswith("models/"):
+            model_clean = model_clean[len("models/"):]
+        self.model = model_clean
 
     def name(self) -> str:
         return f"Gemini ({self.model})"
@@ -218,11 +239,22 @@ class GeminiProvider(LLMProvider):
             "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1500}
         }).encode("utf-8")
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
-        req = urlrequest.Request(url, data=body, headers={"Content-Type": "application/json"})
-        resp = urlrequest.urlopen(req, timeout=TIMEOUT_LLM)
-        data = json.loads(resp.read().decode("utf-8"))
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+        models_to_try = [self.model, "gemini-2.5-flash", "gemini-pro-latest", "gemini-flash-lite-latest"]
+        last_err = None
+
+        for m in models_to_try:
+            for attempt in range(2):
+                try:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={self.api_key}"
+                    req = urlrequest.Request(url, data=body, headers={"Content-Type": "application/json"})
+                    resp = urlrequest.urlopen(req, timeout=TIMEOUT_LLM)
+                    data = json.loads(resp.read().decode("utf-8"))
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
+                except Exception as e:
+                    last_err = e
+                    time.sleep(1)
+
+        raise last_err or Exception("All Gemini models failed")
 
 
 class DeepSeekProvider(LLMProvider):
