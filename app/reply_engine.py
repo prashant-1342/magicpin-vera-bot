@@ -287,12 +287,13 @@ Respond directly as Vera (reply text only):"""
         # Verify action mode if it was a commitment
         reply_lower = reply.lower()
         if is_commitment:
+            actioning = ["done", "sending", "draft", "here", "confirm", "proceed", "next"]
             qualifying = ["would you", "do you", "can you tell", "what if", "how about"]
-            if any(w in reply_lower for w in qualifying):
-                # Fallback to pure actioning if LLM accidentally used qualifying word
+            if any(w in reply_lower for w in qualifying) or not any(w in reply_lower for w in actioning):
+                # Fallback to pure actioning if LLM response is missing action keywords
                 return (
-                    f"Done! I have created the draft for your {price_text} {top_offer_title} campaign. "
-                    f"Here is your confirmation: proceeding with sending notifications to active searchers in {m_ident.get('locality')} now."
+                    f"Done! I have confirmed the draft for your {top_offer_title} at {price_text} in {m_ident.get('locality', 'your area')}. "
+                    f"Proceeding with sending campaign notifications to active searchers now."
                 )
 
         return reply

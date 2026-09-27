@@ -63,7 +63,7 @@ if hasattr(sys.stderr, "reconfigure"):
 import json
 import time
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any, Tuple
 from pathlib import Path
@@ -471,27 +471,27 @@ class BotClient:
             return None, str(e), (time.time() - start) * 1000
 
     def healthz(self):
-        return self._request("GET", "/v1/healthz", 5)
+        return self._request("GET", "/v1/healthz", 10)
 
     def metadata(self):
-        return self._request("GET", "/v1/metadata", 5)
+        return self._request("GET", "/v1/metadata", 10)
 
     def push_context(self, scope, cid, version, payload):
-        return self._request("POST", "/v1/context", 10, {
+        return self._request("POST", "/v1/context", 20, {
             "scope": scope, "context_id": cid, "version": version,
-            "payload": payload, "delivered_at": datetime.utcnow().isoformat() + "Z"
+            "payload": payload, "delivered_at": datetime.now(timezone.utc).isoformat()
         })
 
     def tick(self, triggers):
-        return self._request("POST", "/v1/tick", 15, {
-            "now": datetime.utcnow().isoformat() + "Z", "available_triggers": triggers
+        return self._request("POST", "/v1/tick", 30, {
+            "now": datetime.now(timezone.utc).isoformat(), "available_triggers": triggers
         })
 
     def reply(self, conv_id, merchant_id, message, turn):
-        return self._request("POST", "/v1/reply", 15, {
+        return self._request("POST", "/v1/reply", 30, {
             "conversation_id": conv_id, "merchant_id": merchant_id, "customer_id": None,
             "from_role": "merchant", "message": message,
-            "received_at": datetime.utcnow().isoformat() + "Z", "turn_number": turn
+            "received_at": datetime.now(timezone.utc).isoformat(), "turn_number": turn
         })
 
 # =============================================================================
