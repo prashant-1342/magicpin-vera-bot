@@ -129,7 +129,7 @@ def compose_message(
                     f"{summary} Recover missed revenue by reaching active {audience} in {locality}. "
                     f"Want me to set up a campaign with your {price_str}{offer_title}?"
                 )
-            rationale = f"Cited published research from {source} regarding '{title}'."
+            rationale = f"Cited published research from {source} regarding '{title}' to launch a preventative recall campaign."
         else:
             topic = payload.get("topic", "clinical research")
             body = (
@@ -137,7 +137,7 @@ def compose_message(
                 f"Want me to set up a recall campaign with your {price_str}{offer_title} for affected {audience}?"
             )
             rationale = f"Research digest update on {topic}."
-        cta = "review_research_summary"
+        cta = "launch_recall_campaign"
         suppression_key = f"{m_id}:research_digest:{top_item_id or 'general'}"
 
     # 2. Regulation / Compliance Change
