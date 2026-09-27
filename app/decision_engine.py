@@ -16,24 +16,40 @@ class DecisionEngine:
         """
         Evaluate a list of trigger IDs and return actionable messages.
         Filters out duplicates, suppressed keys, or incomplete merchant profiles.
+        Prioritizes high-urgency and immediate timing over distant triggers.
         """
         actions: List[ActionItem] = []
         seen_merchants = set()
 
+        # Retrieve and rank valid triggers by urgency
+        valid_triggers = []
         for tid in trigger_ids:
             trigger = self.store.get_trigger(tid)
             if not trigger:
                 continue
-
             merchant_id = trigger.get("merchant_id")
             if not merchant_id:
                 continue
-
             merchant = self.store.get_merchant(merchant_id)
             if not merchant:
                 continue
+            
+            # Rank score: integer urgency 1-5, or string 'immediate'/'high'/'medium'/'low'
+            urgency = trigger.get("urgency", 2)
+            if isinstance(urgency, int):
+                urgency_score = urgency
+            elif isinstance(urgency, str):
+                u_lower = urgency.lower()
+                urgency_score = 4 if u_lower == "immediate" else (3 if u_lower == "high" else (1 if u_lower == "low" else 2))
+            else:
+                urgency_score = 2
+            valid_triggers.append((urgency_score, tid, trigger, merchant))
 
-            # Check if merchant already processed in this batch (prevent notification bombardment)
+        # Sort descending by urgency score
+        valid_triggers.sort(key=lambda x: x[0], reverse=True)
+
+        for _, tid, trigger, merchant in valid_triggers:
+            merchant_id = merchant.get("merchant_id")
             if merchant_id in seen_merchants:
                 continue
 

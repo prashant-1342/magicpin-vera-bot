@@ -6,14 +6,18 @@ and merchant-personalized messages across all domain trigger types.
 from typing import Dict, Any, Optional, Tuple, List
 
 
-def get_greeting(category_slug: str, owner_name: str, languages: list) -> str:
-    """Format appropriate professional greeting honoring category honorifics."""
+def get_greeting(category_slug: str, owner_name: str, merchant_name: str = "") -> str:
+    """Format appropriate professional greeting honoring category honorifics and owner name."""
     if category_slug == "dentists":
-        name = f"Dr. {owner_name}" if owner_name and not owner_name.startswith("Dr.") else (owner_name or "Doctor")
-        return f"Hello {name}"
+        if owner_name:
+            clean_name = owner_name if owner_name.startswith("Dr.") else f"Dr. {owner_name}"
+            return f"Hello {clean_name}"
+        return "Hello Doctor"
     
     if owner_name:
         return f"Hi {owner_name}"
+    if merchant_name:
+        return f"Hi {merchant_name} team"
     return "Hi there"
 
 
@@ -37,6 +41,28 @@ def find_digest_item(category: Dict[str, Any], item_id: str) -> Optional[Dict[st
     return None
 
 
+def get_merchant_offer_phrase(merchant: Dict[str, Any], audience: str) -> Tuple[str, bool]:
+    """
+    Safely retrieve active merchant offer without hallucinating phantom services.
+    Returns: (offer_phrase, has_active_offer)
+    """
+    offers = merchant.get("offers", [])
+    active_offers = [o for o in offers if o.get("status") == "active"]
+    
+    if active_offers:
+        primary = active_offers[0]
+        title = primary.get("title", "special service")
+        price = primary.get("price_inr") or primary.get("value")
+        try:
+            price_val = int(price) if price is not None else 0
+        except (ValueError, TypeError):
+            price_val = 0
+        price_str = f"₹{price_val:,} " if price_val > 0 else ""
+        return f"your {price_str}{title} offer", True
+    
+    return f"a tailored promotion for your {audience}", False
+
+
 def compose_message(
     category: Dict[str, Any],
     merchant: Dict[str, Any],
@@ -52,36 +78,14 @@ def compose_message(
     owner_name = m_identity.get("owner_first_name", "")
     merchant_name = m_identity.get("name", "your business")
     locality = m_identity.get("locality", "your area")
-    city = m_identity.get("city", "")
-    languages = m_identity.get("languages", ["en"])
     m_id = merchant.get("merchant_id", "unknown_m")
     
-    greeting = get_greeting(cat_slug, owner_name, languages)
+    greeting = get_greeting(cat_slug, owner_name, merchant_name)
     audience = get_audience_term(cat_slug)
-    
-    # Select best active offer or fallback catalog offer
-    offers = merchant.get("offers", [])
-    active_offers = [o for o in offers if o.get("status") == "active"]
-    if active_offers:
-        primary_offer = active_offers[0]
-    elif offers:
-        primary_offer = offers[0]
-    else:
-        cat_offers = category.get("offer_catalog", [])
-        primary_offer = cat_offers[0] if cat_offers else {"title": "special offer", "price_inr": 0, "value": "0"}
-
-    offer_title = primary_offer.get("title", "special service")
-    offer_price = primary_offer.get("price_inr") or primary_offer.get("value")
-    try:
-        offer_price = int(offer_price) if offer_price is not None else 0
-    except (ValueError, TypeError):
-        offer_price = 0
-        
-    price_str = f"₹{offer_price:,} " if offer_price and offer_price > 0 else ""
+    offer_phrase, has_active_offer = get_merchant_offer_phrase(merchant, audience)
     
     kind = trigger.get("kind", "general_update")
     payload = trigger.get("payload", {})
-    t_id = trigger.get("id", "trig_000")
     
     # 1. Research Digest
     if kind == "research_digest":
@@ -96,45 +100,45 @@ def compose_message(
             if cat_slug == "dentists":
                 body = (
                     f"{greeting}, {source}{trial_text}: '{title}'. "
-                    f"{summary} Recovering overdue preventative visits captures unbooked chairside appointments in {locality}. "
-                    f"Want me to launch a recall invite with your {price_str}{offer_title} for eligible {audience}?"
+                    f"{summary} Proactive preventative outreach directly recovers unbooked chair hours in {locality}. "
+                    f"Shall I launch a recall campaign with {offer_phrase} for overdue {audience}?"
                 )
             elif cat_slug == "gyms":
                 body = (
                     f"{greeting}, {source}{trial_text}: '{title}'. "
-                    f"{summary} Re-engaging at-risk {audience} prevents member drop-off and fills underutilized slots in {locality}. "
-                    f"Want me to send your {price_str}{offer_title} offer to active searchers?"
+                    f"{summary} Early re-engagement stops member churn and fills off-peak floor hours in {locality}. "
+                    f"Want me to send {offer_phrase} to re-activate dormant {audience}?"
                 )
             elif cat_slug == "salons":
                 body = (
                     f"{greeting}, {source}{trial_text}: '{title}'. "
-                    f"{summary} Filling weekday gaps captures high-margin chair appointments across {locality}. "
-                    f"Shall I send your {price_str}{offer_title} offer to nearby {audience}?"
+                    f"{summary} Filling midweek appointment slots captures high-margin chair bookings in {locality}. "
+                    f"Shall I send {offer_phrase} to regular {audience}?"
                 )
             elif cat_slug == "restaurants":
                 body = (
                     f"{greeting}, {source}{trial_text}: '{title}'. "
-                    f"{summary} Driving off-peak table bookings maximizes cover revenue in {locality}. "
-                    f"Want me to spotlight your {price_str}{offer_title} offer to nearby {audience}?"
+                    f"{summary} Capturing off-peak covers increases weekly revenue in {locality}. "
+                    f"Want me to spotlight {offer_phrase} for nearby {audience}?"
                 )
             elif cat_slug == "pharmacies":
                 body = (
                     f"{greeting}, {source}{trial_text}: '{title}'. "
-                    f"{summary} Improving refill adherence ensures recurring monthly prescription volume in {locality}. "
-                    f"Shall I dispatch a 1-tap reorder reminder for your {price_str}{offer_title}?"
+                    f"{summary} Timely refill prompts maintain recurring prescription volume in {locality}. "
+                    f"Shall I send a 1-tap reorder reminder with {offer_phrase}?"
                 )
             else:
                 body = (
                     f"{greeting}, {source}{trial_text}: '{title}'. "
                     f"{summary} Recover missed revenue by reaching active {audience} in {locality}. "
-                    f"Want me to set up a campaign with your {price_str}{offer_title}?"
+                    f"Shall I set up a campaign with {offer_phrase}?"
                 )
-            rationale = f"Cited published research from {source} regarding '{title}' to launch a preventative recall campaign."
+            rationale = f"Cited published research from {source} regarding '{title}'."
         else:
-            topic = payload.get("topic", "clinical research")
+            topic = payload.get("topic", "market trends")
             body = (
-                f"{greeting}, new research update for {cat_slug} in {locality}: '{topic}'. "
-                f"Want me to set up a recall campaign with your {price_str}{offer_title} for affected {audience}?"
+                f"{greeting}, new industry insights for {cat_slug} in {locality}: '{topic}'. "
+                f"Shall I set up a targeted campaign with {offer_phrase} for your {audience}?"
             )
             rationale = f"Research digest update on {topic}."
         cta = "launch_recall_campaign"
@@ -147,8 +151,8 @@ def compose_message(
         digest_item = find_digest_item(category, item_id)
         reg_title = digest_item.get("title", "revised regulatory standards") if digest_item else "revised compliance guidelines"
         body = (
-            f"Compliance notice: '{reg_title}' is effective from {deadline}. "
-            f"Would you like me to generate a quick compliance checklist for {merchant_name}?"
+            f"{greeting}, compliance notice: '{reg_title}' goes into effect on {deadline}. "
+            f"Would you like me to generate an actionable compliance checklist for {merchant_name}?"
         )
         cta = "view_compliance_checklist"
         suppression_key = f"{m_id}:compliance:{deadline}"
@@ -162,8 +166,8 @@ def compose_message(
         slots = payload.get("available_slots", [])
         slot_text = f" (open slot: {slots[0].get('label')})" if slots else ""
         body = (
-            f"{cust_name} is due for their {service_due} on {due_date}{slot_text}. "
-            f"Should I send them a booking reminder with available slots?"
+            f"{greeting}, {cust_name} is due for their {service_due} on {due_date}{slot_text}. "
+            f"Should I send them a 1-tap booking reminder with available slots?"
         )
         cta = "send_recall_reminder"
         suppression_key = f"{m_id}:recall:{customer.get('customer_id') if customer else 'generic'}"
@@ -177,8 +181,8 @@ def compose_message(
         baseline = payload.get("vs_baseline", 15)
         window = payload.get("window", "7d")
         body = (
-            f"Your {metric} in {locality} saw a {pct_display}% dip over the last {window} (vs baseline of {baseline}). "
-            f"Want me to spotlight your {price_str}{offer_title} offer to bring in more {audience}?"
+            f"{greeting}, your {metric} in {locality} dropped {pct_display}% over the last {window} (vs baseline of {baseline}). "
+            f"Want me to spotlight {offer_phrase} to recover traffic from nearby {audience}?"
         )
         cta = "boost_merchant_visibility"
         suppression_key = f"{m_id}:perf_dip:{metric}"
@@ -190,8 +194,8 @@ def compose_message(
         plan = payload.get("plan", "Pro")
         amt = payload.get("renewal_amount", 4999)
         body = (
-            f"Your {plan} plan for {merchant_name} expires in {days} days (renewal: ₹{amt:,}). "
-            f"Would you like me to generate your renewal link to keep campaigns running?"
+            f"{greeting}, your {plan} plan for {merchant_name} expires in {days} days (renewal: ₹{amt:,}). "
+            f"Would you like me to send the 1-click renewal link to prevent campaign downtime?"
         )
         cta = "renew_subscription"
         suppression_key = f"{m_id}:renewal:{days}d"
@@ -203,8 +207,8 @@ def compose_message(
         days_until = payload.get("days_until")
         days_text = f" in {days_until} days" if days_until else ""
         body = (
-            f"{festival} is coming up{days_text}! Searches in {locality} are projected to rise. "
-            f"Shall I prepare your {price_str}{offer_title} festival campaign draft?"
+            f"{greeting}, {festival} is coming up{days_text}! Searches for {cat_slug} in {locality} are climbing. "
+            f"Shall I prepare your {festival} campaign draft with {offer_phrase}?"
         )
         cta = "prepare_festival_draft"
         suppression_key = f"{m_id}:festival:{festival.lower().replace(' ', '_')}"
@@ -217,7 +221,7 @@ def compose_message(
         days_to = payload.get("days_to_wedding", 180)
         next_step = payload.get("next_step_window_open", "skin prep program").replace("_", " ")
         body = (
-            f"{cust_name}'s wedding is on {wedding_date} ({days_to} days away). Time for the {next_step}. "
+            f"{greeting}, {cust_name}'s wedding is on {wedding_date} ({days_to} days away). Time for the {next_step}. "
             f"Should I send her the schedule to book her session?"
         )
         cta = "send_bridal_schedule"
@@ -229,10 +233,10 @@ def compose_message(
         match = payload.get("match", "today's match")
         venue = payload.get("venue", "the stadium")
         match_time = payload.get("match_time_iso", "19:30")
-        time_display = "7:30 PM" if "19:30" in str(match_time) else "match time"
+        time_display = "7:30 PM" if "19:30" in str(match_time) else "tonight"
         body = (
-            f"IPL Match Alert: {match} is playing at {venue} tonight at {time_display}. "
-            f"Want me to send a match-night {price_str}{offer_title} special to nearby {audience}?"
+            f"{greeting}, IPL Match Alert: {match} is playing at {venue} tonight at {time_display}. "
+            f"Want me to launch a match-night special with {offer_phrase} to capture orders from nearby {audience}?"
         )
         cta = "launch_match_special"
         suppression_key = f"{m_id}:ipl:{match.lower().replace(' ', '_')}"
@@ -244,8 +248,8 @@ def compose_message(
         occurrences = payload.get("occurrences_30d", 3)
         quote = payload.get("common_quote", "good service")
         body = (
-            f"Review alert: {occurrences} recent reviews in 30 days mentioned '{theme}' (e.g. \"{quote}\"). "
-            f"Should I draft a quick response template for your team?"
+            f"{greeting}, {occurrences} recent reviews in the past 30 days highlighted '{theme}' (e.g. \"{quote}\"). "
+            f"Should I draft a personalized response template for {merchant_name} to thank them?"
         )
         cta = "review_feedback_template"
         suppression_key = f"{m_id}:review_theme:{theme.lower().replace(' ', '_')}"
@@ -258,8 +262,8 @@ def compose_message(
         milestone = payload.get("milestone_value", 150)
         diff = milestone - val_now if milestone > val_now else 5
         body = (
-            f"Milestone alert: {merchant_name} has {val_now} {metric}, just {diff} away from {milestone}! "
-            f"Want me to invite recent happy {audience} to leave a review and hit {milestone}?"
+            f"{greeting}, milestone alert: {merchant_name} has reached {val_now} {metric}, just {diff} away from {milestone}! "
+            f"Want me to invite recent happy {audience} to leave feedback so you hit {milestone}?"
         )
         cta = "request_milestone_reviews"
         suppression_key = f"{m_id}:milestone:{milestone}"
@@ -270,8 +274,8 @@ def compose_message(
         topic = payload.get("intent_topic", "bulk packages").replace("_", " ")
         last_msg = payload.get("merchant_last_message", "tell me more")
         body = (
-            f"Following up on our discussion regarding '{topic}' (you noted: \"{last_msg}\"). "
-            f"Here is the package outline for {price_str}{offer_title}. Ready for me to activate the draft?"
+            f"{greeting}, following up on our discussion regarding '{topic}' (you noted: \"{last_msg}\"). "
+            f"I have prepared the draft featuring {offer_phrase}. Ready for me to activate it?"
         )
         cta = "confirm_planning_package"
         suppression_key = f"{m_id}:planning:{topic.lower().replace(' ', '_')}"
@@ -282,8 +286,8 @@ def compose_message(
         cust_name = customer.get("identity", {}).get("name", "A patient") if customer else "A chronic patient"
         med = payload.get("medicine", "regular prescription")
         body = (
-            f"{cust_name} is due for their monthly {med} prescription refill this week. "
-            f"Should I send a quick 1-tap WhatsApp reorder link to them?"
+            f"{greeting}, {cust_name} is due for their monthly {med} prescription refill this week. "
+            f"Should I dispatch a 1-tap WhatsApp reorder link to them?"
         )
         cta = "send_refill_link"
         suppression_key = f"{m_id}:refill:{customer.get('customer_id') if customer else 'generic'}"
@@ -295,7 +299,7 @@ def compose_message(
         time_slot = payload.get("time", "tomorrow")
         service = payload.get("service", "scheduled service")
         body = (
-            f"Reminder: {cust_name} has an appointment for {service} at {time_slot}. "
+            f"{greeting}, reminder: {cust_name} has an appointment for {service} at {time_slot}. "
             f"Should I dispatch the automated confirmation and directions link?"
         )
         cta = "send_appointment_reminder"
@@ -306,8 +310,8 @@ def compose_message(
     elif kind == "trial_followup":
         cust_name = customer.get("identity", {}).get("name", "A trial visitor") if customer else "A trial member"
         body = (
-            f"{cust_name} just completed their trial pass. "
-            f"Should I send them your {price_str}{offer_title} membership offer to convert them?"
+            f"{greeting}, {cust_name} just completed their trial session. "
+            f"Should I send them {offer_phrase} to convert them into an active member?"
         )
         cta = "convert_trial_member"
         suppression_key = f"{m_id}:trial_followup:{customer.get('customer_id') if customer else 'generic'}"
@@ -318,8 +322,8 @@ def compose_message(
         days_exp = payload.get("days_since_expiry", 30)
         lapsed = payload.get("lapsed_customers_added_since_expiry", 20)
         body = (
-            f"Since subscription paused {days_exp} days ago, {lapsed} past {audience} became inactive in {locality}. "
-            f"Shall I reactivate your {price_str}{offer_title} to win them back?"
+            f"{greeting}, since your subscription paused {days_exp} days ago, {lapsed} past {audience} became inactive in {locality}. "
+            f"Shall I reactivate your campaign with {offer_phrase} to win them back?"
         )
         cta = "reactivate_account"
         suppression_key = f"{m_id}:winback:{days_exp}d"
@@ -328,8 +332,8 @@ def compose_message(
     # 16. Curious Ask Due
     elif kind == "curious_ask_due":
         body = (
-            f"Quick question for {merchant_name}: Which service or slot is seeing the highest demand in {locality} this week? "
-            f"Reply with the service name and I'll create a promotional draft instantly."
+            f"{greeting}, quick check-in: which service or time slot is seeing the highest demand in {locality} this week? "
+            f"Reply with the service name and I will craft a high-impact campaign draft instantly."
         )
         cta = "share_demand_update"
         suppression_key = f"{m_id}:curious_ask"
@@ -340,8 +344,8 @@ def compose_message(
         comp_name = payload.get("competitor_name", "A new competitor")
         dist = payload.get("distance", "within 2 km")
         body = (
-            f"{comp_name} recently opened in {locality} ({dist}). "
-            f"Want me to highlight your {price_str}{offer_title} to protect your local market share?"
+            f"{greeting}, {comp_name} recently opened in {locality} ({dist}). "
+            f"Want me to promote {offer_phrase} to protect your local footfall and retain nearby {audience}?"
         )
         cta = "counter_competitor"
         suppression_key = f"{m_id}:competitor:{locality.lower().replace(' ', '_')}"
@@ -353,8 +357,8 @@ def compose_message(
         count = payload.get("search_count_nearby", 190)
         timeframe = payload.get("timeframe", "the past 48 hours")
         body = (
-            f"{count} people in {locality} searched for '{query}' in {timeframe}. "
-            f"Want me to send them your {price_str}{offer_title} offer?"
+            f"{greeting}, {count} people in {locality} searched for '{query}' in {timeframe}. "
+            f"Want me to send them {offer_phrase} to capture those leads?"
         )
         cta = "send_search_spike_offer"
         suppression_key = f"{m_id}:search_spike:{query.lower().replace(' ', '_')}"
@@ -363,8 +367,8 @@ def compose_message(
     # Default fallback
     else:
         body = (
-            f"Local searches in {locality} are trending up this week. "
-            f"Would you like me to feature your {price_str}{offer_title} offer to nearby {audience}?"
+            f"{greeting}, local search demand in {locality} is trending up this week. "
+            f"Would you like me to feature {offer_phrase} to attract nearby {audience}?"
         )
         cta = "promote_active_offer"
         suppression_key = f"{m_id}:general_nudge"
