@@ -41,6 +41,25 @@ app.add_middleware(
 )
 
 
+@app.get("/", tags=["Root"])
+def root_info():
+    """Root info page displaying service status and API documentation."""
+    return {
+        "service": "Vera — magicpin Merchant AI Assistant",
+        "status": "online",
+        "version": "1.0.0",
+        "documentation": "/docs",
+        "endpoints": {
+            "health": "/v1/healthz",
+            "metadata": "/v1/metadata",
+            "context": "/v1/context",
+            "tick": "/v1/tick",
+            "reply": "/v1/reply"
+        },
+        "description": "API backend for magicpin merchant automated engagement assistant."
+    }
+
+
 @app.get("/v1/healthz", response_model=HealthResponse, tags=["Health"])
 def health_check():
     """Liveness and readiness check."""
