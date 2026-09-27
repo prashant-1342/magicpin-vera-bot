@@ -86,7 +86,11 @@ class VeraChatClient:
             }
 
             resp = self._post("/v1/reply", payload)
-            action = resp.get("action", "")
+            if "error" in resp:
+                print(f"\n[Connection Error: {resp['error']}]\n")
+                continue
+
+            action = resp.get("action", "send")
             body = resp.get("body", "")
 
             print(f"\nVera [{action.upper()}]: {body}\n")
